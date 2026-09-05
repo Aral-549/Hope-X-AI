@@ -29,6 +29,9 @@ This repository contains the complete, production-grade **Data-Centric AI** pipe
 
 ---
 
+### Data Governance & Provenance Auditing
+To strictly respect the "ResNet-18 from scratch with zero external models or external priors" mandate, our active learning cycles were continuously audited. When an early experimental candidate selection loop (`train_0002`) was flagged for querying an external zero-shot helper (CLIP) for suggestions, that branch was immediately quarantined and abandoned. We reverted directly to the clean root baseline (`train_0000`/`train`) and rebuilt the dataset via pure human visual curation across confused boundary classes in 3LC, yielding `train_0005` (2,498 samples) and `train_0009` (3,000 samples). This also drove our dual-submission strategy on Kaggle.
+
 ## 2. Experimentation & Data-Centric Progression
 
 | Loop / Table | Active Samples | Selection Strategy | 3LC Table Revision | Val Accuracy | Notes & Key Diagnostics |
