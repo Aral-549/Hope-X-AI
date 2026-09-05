@@ -4,13 +4,14 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Framework 3LC](https://img.shields.io/badge/3LC-2.22.3-green.svg)](https://3lc.ai)
 [![Architecture](https://img.shields.io/badge/Model-ResNet18%20(From%20Scratch)-orange.svg)](https://pytorch.org)
+[![Leaderboard](https://img.shields.io/badge/Public%20LB-Rank%20%231%20(0.77777)-gold.svg)]()
 [![Reproducibility](https://img.shields.io/badge/Seed-Deterministic%20(42)-purple.svg)]()
 
 ---
 
 ## 1. Executive Summary & Challenge Overview
 
-This project implements an end-to-end **Data-Centric AI** pipeline for the **HackBlox 2026 AI Track: 3LC Scene Classification Challenge**. The objective is to build a high-performance 6-class natural scene classifier:
+This project implements an end-to-end **Data-Centric AI** pipeline for the **HackBlox 2026 AI Track: 3LC Scene Classification Challenge**. The objective is to classify 1,800 unseen natural and urban scene images into six categories:
 - `0: buildings`
 - `1: forest`
 - `2: glacier`
@@ -18,18 +19,35 @@ This project implements an end-to-end **Data-Centric AI** pipeline for the **Hac
 - `4: sea`
 - `5: street`
 
-### The Data-Centric Twist
-Unlike standard deep learning competitions where participants iterate on complex model architectures or fine-tune massive pretrained foundation models, this challenge strictly fixes the architecture:
-- **Model Architecture**: ResNet-18 **trained strictly from scratch** (`weights=None`). No pretrained weights allowed.
-- **Dataset Budget**: 600 seed labeled images (100 per class, balanced) + 6,000 unlabeled pool (`undefined`).
-- **Hard Labeling Constraint**: The final training table may contain **at most 3,000 active samples (`weight = 1`)**, including the 600 initial seed labels.
-- **Evaluation Metric**: Classification accuracy on 1,800 unseen test images (50% public leaderboard / 50% private leaderboard).
-
-Accuracy gains are driven entirely by **systematic data curation using 3LC**: embeddings-guided active learning, hard negative mining, sample reweighting, and cleaning label noise.
+### Strict Challenge Constraints & Architecture Compliance
+- **Model Architecture**: ResNet-18 **trained strictly from scratch** (`weights=None`). Zero external data, zero pretrained weights.
+- **Dataset Budget**: 600 seed labeled images (100/class, balanced) from an unlabeled pool of 6,000 images (`undefined`).
+- **Hard Labeling Constraint**: The final training table must strictly contain **at most 3,000 active samples (`weight = 1.0`)**. Our final table uses **2,800 active samples** (100% compliant).
+- **Lineage Requirement**: At least three distinct active learning loops versioned inside 3LC (`train_0000`, `train_0001`, `train_0002`).
+- **Hard-Negative Mining**: Loop 3 must be a dedicated hard-negative mining pass targeting the worst confused classes (`glacier` $\leftrightarrow$ `mountain` $\leftrightarrow$ `sea` and `buildings` $\leftrightarrow$ `street`).
 
 ---
 
-## 2. Clean Repository Architecture
+## 2. Experimentation & Progression Summary
+
+| Loop | Active Samples | Selection Strategy | 3LC Table URL / Revision | Val Accuracy | Public LB | Key Confusion / Diagnostic Milestone |
+|:---:|:---:|:---:|:---:|:---:|:---:|:---|
+| **0 (Baseline)** | 600 / 3,000 | Baseline Seed Only | `intel-scene/tables/train` | **69.42%** | Submitted | Baseline floor. High confusion: glacier/mountain/sea (160+ cross errors) and buildings/street. |
+| **1** | 1,400 / 3,000 | Margin Uncertainty + UMAP Diversity | `intel-scene/tables/train_0000` | **78.00%** | **0.77777 (Rank #1)** | **+8.58%** leap. Forest precision reached 94.4%. Glacier/mountain remained bottleneck. |
+| **2** | 2,200 / 3,000 | Class-Balanced Error-Focused Sampling | `intel-scene/tables/train_0001` | **81.75%** | Pending | **+3.75%** leap. Mountain recall jumped to 75.5%, glacier to 69.5%, street F1 to 86.7%. |
+| **3 (Final)** | **2,800 / 3,000** | Dedicated Hard-Negative Mining Pass | `intel-scene/tables/train_0002` | **82.00%** | Ready | Boundary pairs resolved. Sea recall reached 87.5%, forest recall 96.0%, glacier precision 85.1%. |
+
+```
+Validation Accuracy Trajectory Across Loops:
+  Baseline (Loop 0): [=======================>                     ] 69.42% (600 samples)
+  Loop 1:            [=============================>               ] 78.00% (1,400 samples)  <-- #1 on Kaggle LB (0.77777)
+  Loop 2:            [=================================>           ] 81.75% (2,200 samples)
+  Loop 3:            [==================================>          ] 82.00% (2,800 samples)
+```
+
+---
+
+## 3. 3LC Table Lineage & Deliverables Architecture
 
 ```text
 ├── data/
@@ -39,11 +57,10 @@ Accuracy gains are driven entirely by **systematic data curation using 3LC**: em
 ├── configs/
 │   └── config.yaml            # Single source of truth for all hyperparameters
 ├── src/
-│   ├── __init__.py
-│   ├── model.py               # Fixed ResNet-18 (from scratch)
+│   ├── model.py               # ResNet-18 (from scratch, weights=None)
 │   ├── dataset.py             # Flat test dataset and 3LC table mappers
 │   ├── augment.py             # Domain-specific natural scene augmentations
-│   ├── utils.py               # Seed fixing, confusion matrices, evaluation metrics
+│   ├── utils.py               # Seed fixing (42), confusion matrices, evaluation metrics
 │   ├── register_tables.py     # Idempotent 3LC table registration
 │   ├── train.py               # Deterministic training pipeline with 3LC integration
 │   └── predict.py             # Inference generator aligned to Kaggle format
@@ -52,41 +69,25 @@ Accuracy gains are driven entirely by **systematic data curation using 3LC**: em
 │   ├── loop_log.md            # Detailed audit trail of each data-centric iteration
 │   └── metrics.csv            # Run-by-run training and validation metrics
 ├── reports/                   # Saved confusion matrices, classification reports, embeddings
-│   ├── loop0_baseline/
-│   ├── loop1/
-│   ├── loop2/
-│   └── loop3/
-├── notebooks/                 # Exploratory notebooks and error analysis
-├── register_tables.py         # Root entrypoint
-├── train.py                   # Root entrypoint
-├── predict.py                 # Root entrypoint
+│   ├── final_writeup.md       # Comprehensive technical report
+│   ├── loop0/                 # Baseline reports
+│   ├── loop1/                 # Loop 1 reports
+│   ├── loop2/                 # Loop 2 reports
+│   └── loop3/                 # Loop 3 reports
+├── submissions/               # Timestamped historical submission files
+├── submission.csv             # Final verified submission (1800 rows)
+├── 3lc_project_Intel-Scene.zip# Zipped 3LC project directory (~/.local/share/3LC/projects/Intel-Scene)
 ├── sample_submission.csv      # Ground-truth format template (1800 rows)
 ├── requirements.txt           # Pinned dependencies
-└── README.md                  # Comprehensive challenge documentation
+└── README.md                  # Challenge documentation
 ```
 
----
-
-## 3. Environment Setup & Pinned Dependencies
-
-Ensure Python 3.11 is used. Install the exact pinned dependencies:
-
-```bash
-# 1. Create and activate virtual environment
-uv venv .venv --python 3.11
-source .venv/bin/activate
-
-# 2. Install PyTorch and dependencies
-pip install -r requirements.txt
+### 3LC Table Lineage Tree:
 ```
-
-### 3LC Account & Authentication
-```bash
-# Login to 3LC platform
-3lc login <your_api_key>
-
-# Start local 3LC background service (required for 3LC Dashboard)
-3lc service
+intel-scene/tables/train (600 active)
+    └── intel-scene/tables/train_0000 (1,400 active, Loop 1)
+            └── intel-scene/tables/train_0001 (2,200 active, Loop 2)
+                    └── intel-scene/tables/train_0002 (2,800 active, Loop 3)
 ```
 
 ---
@@ -102,49 +103,38 @@ Determinism is enforced in `src/utils.py` via `set_seed(42)`:
 - `torch.backends.cudnn.benchmark = False`
 - `os.environ["PYTHONHASHSEED"] = "42"`
 
-### Seeding Verification Check
-Running the pipeline twice from a clean environment produces identical validation metrics and model state representations, confirming reproducibility.
-
----
-
-## 5. End-to-End Execution Protocol
-
-### Step 1: Register Initial 3LC Tables
+### Reproduction Protocol:
 ```bash
-python register_tables.py
-```
-Initializes versioned 3LC tables (`train` and `val`) referencing dataset images. Labeled seed images receive `weight = 1.0`, while undefined pool images receive `weight = 0.0`.
+# 1. Activate virtual environment
+source .venv/bin/activate
 
-### Step 2: Train Phase 1 Baseline
-```bash
+# 2. Install dependencies
+pip install -r requirements.txt
+
+# 3. Reproduce Baseline (Loop 0)
 python train.py --loop 0
-```
-Trains ResNet-18 on the 600 seed samples only. Generates `best_model.pth`, calculates baseline confusion matrix, and extracts 3D UMAP embeddings into the 3LC Dashboard.
 
-### Step 3: Generate Early Submission
-```bash
+# 4. Reproduce Loop 1
+python train.py --loop 1 --advanced
+
+# 5. Reproduce Loop 2
+python train.py --loop 2 --advanced
+
+# 6. Reproduce Final Loop 3
+python train.py --loop 3 --advanced
+
+# 7. Generate final Kaggle submission
 python predict.py
 ```
-Generates verified `submission.csv` aligned with `sample_submission.csv` to lock in an immediate baseline score on the Kaggle leaderboard.
-
-### Step 4: Iterative Labeling Loops (Loops 1–3)
-1. Launch the 3LC Dashboard: `3lc service`
-2. Inspect embedding clusters, class confusion boundaries (specifically glacier ↔ mountain and street ↔ buildings).
-3. Apply active learning criteria (uncertainty sampling, boundary mining, hard-negative selection).
-4. Label high-value samples and save a new versioned table revision.
-5. Retrain:
-   ```bash
-   python train.py --loop 1 --advanced
-   python predict.py
-   ```
-6. Record metrics in `logs/loop_log.md` and `logs/metrics.csv`.
 
 ---
 
-## 6. Official Submission Checklist
+## 5. Official Submission Checklist for Judges
 
-- [x] ResNet-18 architecture strictly initialized from scratch (`weights=None`).
-- [x] Zero external data or pretrained weights used.
-- [x] Total active training samples verified $\le 3,000$.
-- [x] All 1,800 test image predictions validated against `sample_submission.csv`.
-- [x] Lineage preserved across versioned 3LC table revisions.
+- [x] **Architecture**: ResNet-18 initialized strictly from scratch (`torchvision.models.resnet18(weights=None)`).
+- [x] **Zero External Data**: Trained only on provided competition images and curated pool labels.
+- [x] **Sample Budget**: Exactly 2,800 active rows ($\le 3,000$ limit).
+- [x] **3LC Table Lineage**: Versioned tables `train`, `train_0000`, `train_0001`, `train_0002` present and linked in 3LC.
+- [x] **Zipped 3LC Archive**: `3lc_project_Intel-Scene.zip` created and ready for inspection.
+- [x] **1,800 Row Submission**: `submission.csv` validated with 100% ID alignment, zero nulls, and calibrated class probabilities.
+- [x] **Full Technical Report**: Comprehensive documentation available at `reports/final_writeup.md`.

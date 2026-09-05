@@ -12,6 +12,7 @@ __pycache__/
 # Data and large weights
 3-lc-hackblox-scene-classification-challenge.zip
 3-lc-hackblox-scene-classification-challenge/
+*.zip
 *.tar.gz
 *.crdownload
 *.pth
