@@ -40,6 +40,9 @@ def parse_args():
     parser.add_argument("--table-url", type=str, default=None, help="Explicit 3LC table URL to pin revision")
     parser.add_argument("--epochs", type=int, default=None, help="Override number of epochs")
     parser.add_argument("--lr", type=float, default=None, help="Override learning rate")
+    parser.add_argument("--seed", type=int, default=None, help="Override random seed")
+    parser.add_argument("--save-name", type=str, default=None, help="Custom checkpoint filename")
+    parser.add_argument("--skip-metrics", action="store_true", help="Skip 3LC metric collection & UMAP reduction")
     parser.add_argument("--advanced", action="store_true", help="Use advanced augmentation & regularization recipe")
     return parser.parse_args()
 
@@ -113,7 +116,8 @@ def main():
     args = parse_args()
     config = load_config()
 
-    set_seed(config["project"]["random_seed"])
+    seed = args.seed if args.seed is not None else config["project"]["random_seed"]
+    set_seed(seed)
 
     print("=" * 70)
     print(f"  HackBlox 2026 · 3LC Scene Classification (Loop {args.loop})")
@@ -287,62 +291,69 @@ def main():
     if best_model_state is not None:
         model.load_state_dict(best_model_state)
 
-    ckpt_path = PROJECT_ROOT / config["data"]["paths"]["best_model_path"]
-    torch.save(model.state_dict(), ckpt_path)
-    loop_ckpt_path = PROJECT_ROOT / f"best_model_loop{args.loop}.pth"
-    torch.save(model.state_dict(), loop_ckpt_path)
-    print(f"[OK] Checkpoints saved to {ckpt_path} and {loop_ckpt_path}")
+    if args.save_name:
+        custom_ckpt = PROJECT_ROOT / args.save_name
+        torch.save(model.state_dict(), custom_ckpt)
+        print(f"[OK] Custom checkpoint saved to {custom_ckpt}")
+    else:
+        ckpt_path = PROJECT_ROOT / config["data"]["paths"]["best_model_path"]
+        torch.save(model.state_dict(), ckpt_path)
+        loop_ckpt_path = PROJECT_ROOT / f"best_model_loop{args.loop}.pth"
+        torch.save(model.state_dict(), loop_ckpt_path)
+        print(f"[OK] Checkpoints saved to {ckpt_path} and {loop_ckpt_path}")
 
-    # Generate and save confusion matrix
-    loop_folder = "loop0_baseline" if args.loop == 0 else f"loop{args.loop}"
-    report_dir = PROJECT_ROOT / config["data"]["paths"]["reports_dir"] / loop_folder
-    cm_path = report_dir / "confusion_matrix.png"
-    target_names = config["data"]["classes"]
-    plot_and_save_confusion_matrix(
-        best_val_targets,
-        best_val_preds,
-        class_names=target_names,
-        save_path=str(cm_path),
-        title=f"Confusion Matrix - Loop {args.loop} (Val Acc: {best_val_accuracy:.2f}%)",
-    )
-
-    # 7. Collect 3LC Metrics & Embeddings
-    print("\n[5/6] Collecting per-sample metrics on train table...")
-    model.eval()
-    tlc.collect_metrics(
-        train_table,
-        predictor=predictor,
-        metrics_collectors=[classification_metrics_collector, embeddings_metrics_collector],
-        split="train",
-        dataloader_args={"batch_size": batch_size, "num_workers": 0},
-    )
-
-    print("\n[6/6] Reducing embeddings with UMAP (3D)...")
-    try:
-        reduced_meta = run.reduce_embeddings_by_foreign_table_url(
-            train_table.url,
-            method="umap",
-            n_neighbors=15,
-            n_components=3,
+        # Generate and save confusion matrix
+        loop_folder = "loop0_baseline" if args.loop == 0 else f"loop{args.loop}"
+        report_dir = PROJECT_ROOT / config["data"]["paths"]["reports_dir"] / loop_folder
+        cm_path = report_dir / "confusion_matrix.png"
+        target_names = config["data"]["classes"]
+        plot_and_save_confusion_matrix(
+            best_val_targets,
+            best_val_preds,
+            class_names=target_names,
+            save_path=str(cm_path),
+            title=f"Confusion Matrix - Loop {args.loop} (Val Acc: {best_val_accuracy:.2f}%)",
         )
-        print("  [OK] Embeddings successfully reduced to 3D UMAP space.")
-        
-        # Save side-by-side 3D embedding visualization
-        run_name = run.name
-        parquet_file = Path.home() / ".local/share/3LC/projects" / config["project"]["name"] / "runs" / run_name / "reduced_0000" / "reduced_0000.parquet"
-        if parquet_file.exists():
-            emb_plot_path = report_dir / "embedding_view.png"
-            save_embedding_plot(parquet_file, emb_plot_path, title_suffix=f"- Loop {args.loop}")
-    except Exception as e:
-        print(f"  [WARN] UMAP reduction / visualization exception: {e}")
+
+    if not args.skip_metrics:
+        # 7. Collect 3LC Metrics & Embeddings
+        print("\n[5/6] Collecting per-sample metrics on train table...")
+        model.eval()
+        tlc.collect_metrics(
+            train_table,
+            predictor=predictor,
+            metrics_collectors=[classification_metrics_collector, embeddings_metrics_collector],
+            split="train",
+            dataloader_args={"batch_size": batch_size, "num_workers": 0},
+        )
+
+        print("\n[6/6] Reducing embeddings with UMAP (3D)...")
+        try:
+            reduced_meta = run.reduce_embeddings_by_foreign_table_url(
+                train_table.url,
+                method="umap",
+                n_neighbors=15,
+                n_components=3,
+            )
+            print("  [OK] Embeddings successfully reduced to 3D UMAP space.")
+            
+            # Save side-by-side 3D embedding visualization
+            run_name = run.name
+            parquet_file = Path.home() / ".local/share/3LC/projects" / config["project"]["name"] / "runs" / run_name / "reduced_0000" / "reduced_0000.parquet"
+            if parquet_file.exists():
+                emb_plot_path = report_dir / "embedding_view.png"
+                save_embedding_plot(parquet_file, emb_plot_path, title_suffix=f"- Loop {args.loop}")
+        except Exception as e:
+            print(f"  [WARN] UMAP reduction / visualization exception: {e}")
 
     run.set_status_completed()
 
     # Append to metrics.csv
+    logged_ckpt = custom_ckpt if args.save_name else ckpt_path
     metrics_file = PROJECT_ROOT / config["data"]["paths"]["logs_dir"] / "metrics.csv"
     timestamp = datetime.now().isoformat()
     with open(metrics_file, "a") as f:
-        f.write(f"{args.loop},{timestamp},{epochs},{batch_size},{lr},{n_weight1},NA,{best_val_accuracy:.4f},NA,{train_table.url},{ckpt_path}\n")
+        f.write(f"{args.loop},{timestamp},{epochs},{batch_size},{lr},{n_weight1},NA,{best_val_accuracy:.4f},NA,{train_table.url},{logged_ckpt}\n")
 
     print(f"\n[OK] Run registered in 3LC. Table URL: {train_table.url}")
     print("=" * 70)
