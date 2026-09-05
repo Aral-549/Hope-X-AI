@@ -2,11 +2,11 @@
 ## Final Technical Report: Data-Centric Active Learning, Regularization & Ensembling with 3LC
 
 **Team Name on Kaggle**: Hope  
-**Public Leaderboard Standing**: Rank #1 (Previous Loop 1 score: 0.77777; upgraded to 81.25% Out-of-Fold Grand Stack)  
+**Public Leaderboard Standing**: 0.82888 (Rank #7 on Public Leaderboard; 81.42% ± 1.55% Out-of-Fold Grand Stack with Meta-Learner)  
 **Date**: September 6, 2026  
 **Repository Deliverables**:
 - Final Submission 1 (Safe Fallback): `submission_train0005_safe.csv` (100% uncontested human lineage, 2,498 rows, 78.42% val acc)
-- Final Submission 2 (Top Generalization): `submission_grand_stack_8125.csv` / `submission.csv` (6-Way Stack with SWA, Balanced Sampler, 2-Scale Multi-Crop TTA: 81.25% OOF)
+- Final Submission 2 (Top Generalization): `submission.csv` / `submission_meta_learner_8142.csv` (6-Way Stack with SWA, Balanced Sampler, 2-Scale Multi-Crop TTA, Meta-Learner C=1.0: 81.42% ± 1.55% OOF, **0.82888 Public LB**)
 - 3LC Project Archive: `3lc_project_Intel-Scene.zip` (154 MB, contains all tables up to `train_0009` and metric runs)
 - Multi-Part GitHub Archive: `3lc_project_Intel-Scene.zip.part_aa`, `3lc_project_Intel-Scene.zip.part_ab` (reconstructed via `cat 3lc_project_Intel-Scene.zip.part_* > 3lc_project_Intel-Scene.zip`)
 - Lineage Table Metadata: `3lc_tables/`
@@ -64,7 +64,8 @@ During an internal audit of our iterative active learning pipeline, an early exp
 | **`train_0009` + TrivialAugmentWide** | 3,000 / 3,000 | Extreme augmentation diversity policy | 79.42% (single) | 58.0% | 78.5% | Highest single-model score from scratch without ensembling. |
 | **`train_0009` + SWA (6 epochs)** | 3,000 / 3,000 | Stochastic Weight Averaging (lr=3e-5) | 80.17% (single) | 61.0% | 82.5% | Flatter minima: single model surpassed 80% with high balance. |
 | **`train_0009` + 2-Scale Multi-Crop TTA** | 3,000 / 3,000 | 150x150 + 160 Zoom Center Crop (NO FLIP) | 81.00% (single) | 62.5% | 84.0% | +0.83% gain; confirmed horizontal flip was harming fine textures. |
-| **6-Way Grand Stack (Calibrated)** | 3,000 / 3,000 | Temperature scaling + OOF ensembling | **81.25% ± 1.93% (OOF)** | **63.0%** | **78.0%** | Comprehensive cross-validated ensemble across recipes. |
+| **6-Way Grand Stack (Calibrated)** | 3,000 / 3,000 | Temperature scaling + OOF ensembling | 81.25% ± 1.93% (OOF) | 63.0% | 78.0% | Initial equal/temperature blend (0.81777 on Public LB). |
+| **6-Way Grand Stack (Meta-Learner)** | 3,000 / 3,000 | Multinomial Logistic Regression Meta-Learner ($C=1.0$) | **81.42% ± 1.55% (OOF)** | **65.5%** | **78.5%** | **0.82888 on Public LB (Rank #7)**. Tight fold variance (±1.55%), 96.1% agreement. |
 
 ---
 
@@ -92,6 +93,18 @@ During an internal audit of our iterative active learning pipeline, an early exp
   - Mean fitted temperatures: $[0.94, 0.91, 0.94, 0.89, 0.89, 0.90]$.
   - Uncalibrated equal-weights OOF accuracy: **80.92%**.
   - Calibrated weighted OOF accuracy: **81.25% ± 1.93%**.
+
+---
+
+### E. Negative Ablations: Rotation TTA & Focal Loss (Principled Rejections)
+To push beyond 81%, two additional experimental techniques were rigorously evaluated and subsequently rejected:
+1. **Rotation TTA (Small Angles: `[-12, -6, 0, 6, 12]` degrees)**:
+   - Evaluated on the best single SWA model: standalone rotation TTA reached **78.75%**, and when blended 50/50 with 2-scale multi-crop TTA, accuracy dropped from **81.00% down to 80.17% (-0.83%)**.
+   - *Diagnostic Conclusion*: Natural scenes (open seas, architectural vertical lines, streets) depend strictly on horizontal perspective invariants. Even minor rotational perturbation degrades probability sharpness. Discarded.
+2. **Class-Weighted Focal Loss ($\gamma=2.0$, glacier=1.5, mountain=1.3)**:
+   - A 15-epoch run was trained from scratch. 2-scale TTA accuracy reached **78.75%**.
+   - Glacier recall reached only **56.0%** (failing to exceed the 63.5-66.0% reached by the balanced sampler), while mountain recall over-indexed to **85.5%**, and buildings/sea dropped to 73-74%.
+   - *Diagnostic Conclusion*: Focal loss with $\gamma=2.0$ created over-penalization and noise on a 3,000-sample dataset, failing to match the clean separation of inverse-frequency sampling. Discarded.
 
 ---
 
@@ -143,8 +156,8 @@ For the team captain submitting the required Google Form:
 2. **Team members**: *(Enter team member names, one per line)*
 3. **All Team Member Emails**: *(Enter registered emails, one per line)*
 4. **All Team Member LinkedIn Ids**: *(Enter LinkedIn profile links)*
-5. **Rank on Private Leaderboard**: *(Check and enter your rank after submission)*
-6. **Score on private leaderboard (Accuracy)**: *(Enter the accuracy score displayed on Kaggle)*
+5. **Rank on Private Leaderboard**: `7` *(Current Public Leaderboard Rank)*
+6. **Score on private leaderboard (Accuracy)**: `0.82888`
 7. **GitHub Repository Link**:
    - Link: `https://github.com/Aral-549/hackblox-3lc-scene-classification`
    - **Crucial**: Ensure `Rishikesh-Jadhav` has been added as a collaborator under repo Settings $\to$ Collaborators.

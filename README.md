@@ -4,8 +4,8 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Framework 3LC](https://img.shields.io/badge/3LC-2.22.3-green.svg)](https://3lc.ai)
 [![Architecture](https://img.shields.io/badge/Model-ResNet18%20(From%20Scratch)-orange.svg)](https://pytorch.org)
-[![Leaderboard](https://img.shields.io/badge/Public%20LB-Rank%20%231%20(0.77777)-gold.svg)]()
-[![Validation OOF](https://img.shields.io/badge/CV%20OOF-81.25%25%20%C2%B1%201.93%25-brightgreen.svg)]()
+[![Leaderboard](https://img.shields.io/badge/Public%20LB-Rank%20%237%20(0.82888)-gold.svg)]()
+[![Validation OOF](https://img.shields.io/badge/CV%20OOF-81.42%25%20%C2%B1%201.55%25-brightgreen.svg)]()
 [![Reproducibility](https://img.shields.io/badge/Seed-Deterministic%20(42)-purple.svg)]()
 
 ---
@@ -44,7 +44,8 @@ To strictly respect the "ResNet-18 from scratch with zero external models or ext
 | **Inverse-Freq Sampler** | 3,000 / 3,000 | Inverse class frequency sampling | `intel-scene/tables/train_0009` | **79.83% (TTA)** | Recovered +6.0% glacier recall without sacrificing mountain. |
 | **TrivialAugmentWide** | 3,000 / 3,000 | Dynamic augmentation policy | `intel-scene/tables/train_0009` | **79.42%** | Highest single-model score without ensembling. |
 | **SWA (6 epochs)** | 3,000 / 3,000 | Stochastic Weight Averaging (lr=3e-5) | `intel-scene/tables/train_0009` | **81.00% (TTA)** | Flatter minima: single model reached 80.17% standard / 81.00% with 2-scale TTA. |
-| **6-Way Grand Stack** | 3,000 / 3,000 | Temperature scaling + OOF calibration | `intel-scene/tables/train_0009` | **81.25% ± 1.93%** | Final Kaggle candidate (`submission.csv`). 5-fold cross-validated out-of-fold. |
+| **6-Way Grand Stack (Calibrated)** | 3,000 / 3,000 | Temperature scaling + OOF calibration | `intel-scene/tables/train_0009` | 81.25% ± 1.93% | Initial baseline ensemble (scored 0.81777 on Public LB). |
+| **6-Way Grand Stack (Meta-Learner)** | 3,000 / 3,000 | Multinomial Logistic Regression ($C=1.0$) | `intel-scene/tables/train_0009` | **81.42% ± 1.55%** | **0.82888 on Public LB (Rank #7)**. Tight fold variance (±1.55%), 96.1% agreement. |
 
 ```
 Validation Accuracy Trajectory Across Progression:
@@ -79,6 +80,12 @@ Validation Accuracy Trajectory Across Progression:
   - Calibrated weighted OOF: **81.25% ± 1.93%** (Fold range: 78.33% – 83.33%)
 
 ---
+
+### E. Negative Ablations & Rejected Techniques
+1. **Rotation TTA (`[-12, -6, 0, 6, 12]` degrees)**:
+   - Standalone: 78.75%. Combined with multi-crop: **80.17%** (dropped from 81.00%!). Natural scene perspective geometry is degraded by rotational shear. Discarded.
+2. **Class-Weighted Focal Loss ($\gamma=2.0$, glacier=1.5, mountain=1.3)**:
+   - Reached 78.75% 2-scale TTA. Over-indexed on mountain (85.5% recall) while glacier recall lagged at 56.0% (inferior to balanced sampler at 63.5-66.0%). Discarded.
 
 ## 4. Final Per-Class Performance (6-Way Grand Stack)
 
