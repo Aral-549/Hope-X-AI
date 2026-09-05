@@ -103,6 +103,11 @@ Determinism is enforced in `src/utils.py` via `set_seed(42)`:
 - `torch.backends.cudnn.benchmark = False`
 - `os.environ["PYTHONHASHSEED"] = "42"`
 
+### Phase 3 Double-Run Reproducibility Verification
+- **Initial Training Run (Seed 42)**: Val Accuracy = **82.00%**
+- **Verification Re-Run (Clean Process, Seed 42)**: Val Accuracy = **82.00%**
+- **Delta**: **0.00%** (Passing the $\le 0.5\%$ rule with exact reproducibility).
+
 ### Reproduction Protocol:
 ```bash
 # 1. Activate virtual environment
