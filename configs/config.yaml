@@ -1,0 +1,72 @@
+# HackBlox 2026 · 3LC Scene Classification Challenge
+# ============================================================
+# Centralized Configuration: All hyperparameters defined here
+
+project:
+  name: "Intel-Scene"
+  dataset_name: "intel-scene"
+  random_seed: 42
+  deterministic: true
+
+model:
+  architecture: "resnet18"
+  num_classes: 6
+  pretrained: false  # STRICT RULE: Must be false, train from scratch
+  fc_hidden1: 256
+  fc_hidden2: 128
+  dropout_rate: 0.3
+
+data:
+  image_size: 150
+  num_classes: 6
+  classes:
+    - "buildings"   # 0
+    - "forest"      # 1
+    - "glacier"     # 2
+    - "mountain"    # 3
+    - "sea"         # 4
+    - "street"      # 5
+  undefined_class: "undefined"  # Index 6
+  max_weight1_rows: 3000  # HARD CONSTRAINT: Max 3000 active training samples
+  paths:
+    train_dir: "data/train"
+    val_dir: "data/val"
+    test_dir: "data/test"
+    sample_submission: "sample_submission.csv"
+    submission_output: "submission.csv"
+    submissions_dir: "submissions"
+    reports_dir: "reports"
+    logs_dir: "logs"
+    tables_dir: "3lc_tables"
+    best_model_path: "best_model.pth"
+
+training:
+  baseline:
+    epochs: 10
+    batch_size: 16
+    learning_rate: 0.0001
+    weight_decay: 0.00001
+    scheduler: "step"
+    step_size: 5
+    gamma: 0.1
+    use_augmentation: false  # Baseline: no augmentation for true floor measurement
+  advanced:
+    epochs: 15
+    batch_size: 16
+    learning_rate: 0.0001
+    weight_decay: 0.0001
+    scheduler: "cosine_warmup"
+    warmup_epochs: 3
+    min_lr: 0.000001
+    label_smoothing: 0.1
+    use_augmentation: true
+    use_mixup: false
+    mixup_alpha: 0.2
+    use_cutmix: false
+    cutmix_alpha: 1.0
+    use_focal_loss: false
+    focal_gamma: 2.0
+
+inference:
+  batch_size: 32
+  use_tta: false  # Test-time augmentation (horizontal flip + slight multi-crop)

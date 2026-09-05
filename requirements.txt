@@ -1,0 +1,19 @@
+# Core Frameworks & 3LC (Pinned for API stability)
+--extra-index-url https://pypi.3lc.ai/public/repositories/releases-public
+3lc==2.22.3
+torch
+torchvision
+joblib
+pytz
+umap-learn
+
+# Utilities & Configuration
+pyyaml
+tqdm
+scikit-learn
+matplotlib
+seaborn
+pandas
+requests
+pycookiecheat
+Pillow

@@ -1,0 +1,26 @@
+# Virtual environments
+.venv/
+env/
+3lc-env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Data and large weights
+3-lc-hackblox-scene-classification-challenge.zip
+3-lc-hackblox-scene-classification-challenge/
+*.tar.gz
+*.crdownload
+/tmp/
+
+# Submissions history (keep submission.csv, ignore large local backup dumps if needed)
+submissions/submission_*.csv
+
+# System
+.DS_Store
+.vscode/
+.idea/
+data/
