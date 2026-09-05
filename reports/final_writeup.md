@@ -96,8 +96,15 @@ During an internal audit of our iterative active learning pipeline, an early exp
 
 ---
 
-### E. Negative Ablations: Rotation TTA & Focal Loss (Principled Rejections)
-To push beyond 81%, two additional experimental techniques were rigorously evaluated and subsequently rejected:
+### E. Multi-Resolution Feature Diversity (176x176 Scale)
+- To introduce architectural scale diversity without violating the ResNet-18 constraint, we trained a dedicated ResNet-18 model on $176 \times 176$ input crops (resized to 194, random crop 176).
+- Standalone validation accuracy reached **79.83%** (with 2-scale TTA).
+- Adding this multi-resolution feature stream to the meta-learner lifted 5-fold cross-validation accuracy from **81.42% to 81.75% ± 1.74%**, with **every single held-out fold achieving $\ge 80.00\%$** (80.0%, 82.5%, 84.6%, 81.2%, 80.4%).
+
+---
+
+### F. Negative Ablations & Principled Rejections
+To push beyond 81%, multiple experimental techniques were rigorously evaluated and subsequently rejected:
 1. **Rotation TTA (Small Angles: `[-12, -6, 0, 6, 12]` degrees)**:
    - Evaluated on the best single SWA model: standalone rotation TTA reached **78.75%**, and when blended 50/50 with 2-scale multi-crop TTA, accuracy dropped from **81.00% down to 80.17% (-0.83%)**.
    - *Diagnostic Conclusion*: Natural scenes (open seas, architectural vertical lines, streets) depend strictly on horizontal perspective invariants. Even minor rotational perturbation degrades probability sharpness. Discarded.
@@ -105,6 +112,14 @@ To push beyond 81%, two additional experimental techniques were rigorously evalu
    - A 15-epoch run was trained from scratch. 2-scale TTA accuracy reached **78.75%**.
    - Glacier recall reached only **56.0%** (failing to exceed the 63.5-66.0% reached by the balanced sampler), while mountain recall over-indexed to **85.5%**, and buildings/sea dropped to 73-74%.
    - *Diagnostic Conclusion*: Focal loss with $\gamma=2.0$ created over-penalization and noise on a 3,000-sample dataset, failing to match the clean separation of inverse-frequency sampling. Discarded.
+3. **Contrast-Limited Adaptive Histogram Equalization (CLAHE) TTA**:
+   - Evaluated LAB-channel CLAHE ($clip\_limit=2.0, tile=8\times 8$) as an illumination-invariant test-time augmentation. Standalone accuracy was **77.58%**, and blending with multi-crop TTA yielded **81.00%** at best (0% net gain) or degraded to **80.42%**. Natural scene color distributions provide key discriminative cues that histogram equalization flattens. Discarded.
+4. **Model-Based Label Noise Cleansing (`train_0010`)**:
+   - Evaluated flipping labels on the top 29 high-margin ensemble disagreements ($\Delta p \ge 0.40$). Standalone SWA validation dropped from **81.00% to 79.75% (-1.25%)**, with `street` recall collapsing by **-4.5%** (91.5% $\to$ 87.0%) and `glacier` by **-3.5%** (62.5% $\to$ 59.0%). Confirmed circular confirmation bias where hard boundary edge cases were misidentified as noise. Discarded; `train_0009` retained as pristine ground truth.
+5. **Glacier $\leftrightarrow$ Mountain Dedicated Binary Specialist**:
+   - To resolve the primary remaining confusion pair (32 ambiguous boundary images with margin $< 0.20$ where the ensemble was at 50% accuracy), we trained a binary ResNet-18 from scratch strictly on the 990 glacier and mountain samples in `train_0009`.
+   - On the 400 held-out validation GM samples, the binary specialist peaked at **76.25%** accuracy, underperforming our 7-way full-dataset meta-learner baseline of **79.00%** (-2.75% deficit).
+   - *Diagnostic Conclusion*: When training from scratch (`weights=None`), 990 samples is too sparse for an 11.2M parameter CNN to learn rich visual filters. The full-dataset models benefit from shared representation learning across all 3,000 images. Discarded.
 
 ---
 

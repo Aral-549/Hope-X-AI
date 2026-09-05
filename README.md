@@ -81,11 +81,23 @@ Validation Accuracy Trajectory Across Progression:
 
 ---
 
-### E. Negative Ablations & Rejected Techniques
+### E. Multi-Resolution Scale Diversity (176x176 Scale)
+- Trained a dedicated ResNet-18 on $176 \times 176$ input crops (resized to 194, random crop 176). Standalone 2-scale TTA reached **79.83%**.
+- Incorporating multi-resolution representations into the meta-learner lifted 5-fold cross-validation accuracy to **81.75% ± 1.74%**, with **every single fold achieving $\ge 80.00\%$**.
+
+---
+
+### F. Negative Ablations & Rejected Techniques
 1. **Rotation TTA (`[-12, -6, 0, 6, 12]` degrees)**:
    - Standalone: 78.75%. Combined with multi-crop: **80.17%** (dropped from 81.00%!). Natural scene perspective geometry is degraded by rotational shear. Discarded.
 2. **Class-Weighted Focal Loss ($\gamma=2.0$, glacier=1.5, mountain=1.3)**:
    - Reached 78.75% 2-scale TTA. Over-indexed on mountain (85.5% recall) while glacier recall lagged at 56.0% (inferior to balanced sampler at 63.5-66.0%). Discarded.
+3. **Contrast-Limited Adaptive Histogram Equalization (CLAHE) TTA**:
+   - Evaluated LAB-channel CLAHE ($clip\_limit=2.0, tile=8\times 8$). Standalone accuracy was 77.58%, and blending with multi-crop TTA yielded 81.00% at best (0% net gain) or degraded to 80.42%. Discarded.
+4. **Model-Based Label Noise Cleansing (`train_0010`)**:
+   - Evaluated flipping labels on top 29 high-margin disagreements ($\Delta p \ge 0.40$). Validation dropped from 81.00% to 79.75% (-1.25%), with `street` recall collapsing by -4.5% and `glacier` by -3.5%. Discarded; `train_0009` retained as pristine base.
+5. **Glacier $\leftrightarrow$ Mountain Dedicated Binary Specialist**:
+   - Evaluated training a binary ResNet-18 from scratch strictly on the 990 glacier and mountain samples in `train_0009`. Reached 76.25% validation accuracy, underperforming our 7-way full-dataset meta-learner baseline of 79.00% (-2.75% deficit) due to feature scarcity from scratch. Discarded.
 
 ## 4. Final Per-Class Performance (6-Way Grand Stack)
 
