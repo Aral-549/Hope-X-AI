@@ -175,7 +175,7 @@ For the team captain submitting the required Google Form:
 6. **Score on private leaderboard (Accuracy)**: `0.82888`
 7. **GitHub Repository Link**:
    - Link: `https://github.com/Aral-549/hackblox-3lc-scene-classification`
-   - **Crucial**: Ensure `Rishikesh-Jadhav` has been added as a collaborator under repo Settings $\to$ Collaborators.
+   - *Note*: Ensure the repo is accessible to the official evaluation handles once announced by event organizers.
 8. **What Did You Learn from This Challenge?**:
    > *"Beyond core algorithmic tuning, this challenge reinforced the critical importance of rigorous data governance and provenance auditing. When an early pipeline audit revealed that an automated selection script inadvertently queried an external zero-shot model for candidate suggestions—violating the strict from-scratch spirit of the competition—we immediately quarantined that branch, reverted to the clean root table, and rebuilt our dataset using 100% visual human curation in 3LC. That discipline directly improved our modeling: diagnosing subtle glacier/mountain boundary failures in 3LC embeddings, resolving severe class imbalance with inverse-frequency sampling, applying Stochastic Weight Averaging for flatter optimization minima, and discovering that horizontal flips degraded geological textures while 2-scale multi-crop TTA delivered a clean +0.83% lift. 3LC's versioned tables were vital for maintaining an immutable, transparent audit trail across both our data rectification and our final grand stack."*
 9. **Experience using 3LC**: `[Select 1-5 based on your personal experience: 1=Very Poor, 5=Excellent]`
