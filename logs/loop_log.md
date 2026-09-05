@@ -5,6 +5,7 @@
 |---|---|---|---|---|---|---|---|---|
 | 0 | 2026-09-05 11:47 | Baseline Seed Only (100/class) | 0 | 600 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train` | 69.42% | Submitted | Severe confusion on glacier/mountain/sea and buildings/street. Forest is well-separated. |
 | 1 | 2026-09-05 12:07 | Uncertainty Sampling + UMAP Diversity | 800 | 1400 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0000` | 78.00% | Pending | +8.58% accuracy leap. Forest reached 94.4% precision. Glacier/mountain (43/17 confusions) remain core bottleneck. |
+| 2 | 2026-09-05 12:16 | Error-Focused Sampling (Glacier/Mountain/Urban) | 800 | 2200 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001` | 81.75% | Pending | +3.75% accuracy leap to 81.75%. Mountain recall jumped to 75.5%, glacier to 69.5%, street F1 to 86.7%. |
 
 ---
 
@@ -36,3 +37,14 @@
   - `buildings` recall reached **78.50%** (up from 68%), though 33 buildings are still classified as streets.
   - The dominant remaining failure mode is the **Glacier ↔ Mountain ↔ Sea** triad: 43 glaciers predicted as mountain, 17 mountains predicted as glacier, and 32 mountains predicted as sea. Glacier recall remains the lowest at 63.00%, followed by mountain at 66.50%.
   - **Action for Loop 2**: Class-balanced error-focused sampling explicitly oversampling glacier and mountain uncertain points, as well as buildings vs. street boundary cases.
+
+### Loop 2 (2026-09-05 12:16:04)
+- **Strategy / Criterion**: Loop 2: Class-Balanced Error-Focused Sampling (Glacier/Mountain/Buildings/Street)
+- **Samples Touched / Newly Curated**: 800 samples
+- **Total Active Training Samples (weight = 1.0)**: 2200 / 3000
+- **Table Revision**: `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001` (parent: `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0000`)
+- **Validation Accuracy**: 78.0% → **81.75%** (+3.75%)
+- **Confusion Shifts & Key Findings**:
+  - Activated 800 curated samples targeting decision boundary uncertainty.
+  - Proof artifacts generated: `reports/loop2/confusion_matrix.png`, `confusion_matrix.csv`, `confusion_matrix_report.txt`, `embedding_view.png`.
+  - Predictions generated and formatted to `submission.csv` and archived to `submissions/`.

@@ -1,0 +1,9 @@
+{
+  "loop": 2,
+  "table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001",
+  "parent_table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0000",
+  "total_rows": 6600,
+  "active_weight1_rows": 2200,
+  "newly_annotated": 800,
+  "description": "Loop 2: Class-Balanced Error-Focused Sampling (Glacier/Mountain/Buildings/Street)"
+}
