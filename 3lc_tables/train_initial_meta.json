@@ -1,0 +1,8 @@
+{
+  "table_name": "train",
+  "split_name": "train",
+  "table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train",
+  "total_rows": 6600,
+  "labeled_rows": 600,
+  "undefined_rows": 6000
+}

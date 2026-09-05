@@ -1,0 +1,8 @@
+{
+  "table_name": "val",
+  "split_name": "val",
+  "table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/val",
+  "total_rows": 1200,
+  "labeled_rows": 1200,
+  "undefined_rows": 0
+}

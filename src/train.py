@@ -1,6 +1,10 @@
 """
 Train ResNet-18 classifier on Intel Scene dataset using 3LC.
-Reproducible, deterministic, and strictly follows competition constraints.
+Strictly follows HackBlox 2026 / 3LC Challenge rules:
+1. ResNet-18 only, initialized and trained from scratch (weights=None).
+2. Max 3,000 active samples (weight=1.0) strictly enforced before training.
+3. Versioned 3LC lineage tracking with input_tables and .latest() resolution.
+4. Generates all proof artifacts: confusion matrix, report, 3D embeddings, metrics.
 """
 
 import sys
@@ -19,6 +23,8 @@ from torch.utils.data import DataLoader
 from tqdm import tqdm
 from PIL import Image
 import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
 import tlc
 
 from src.utils import set_seed, load_config, plot_and_save_confusion_matrix
@@ -57,6 +63,50 @@ def metrics_fn(batch, predictor_output: tlc.PredictorOutput):
         "accuracy": accuracy.cpu().numpy(),
         "confidence": confidence.cpu().numpy(),
     }
+
+
+def save_embedding_plot(parquet_path: Path, output_path: Path, title_suffix: str = ""):
+    """Generate high-resolution side-by-side 3D UMAP embedding visualization."""
+    df = pd.read_parquet(parquet_path)
+    coords = np.array(df["embeddings_mean_67_umap"].tolist())
+
+    fig = plt.figure(figsize=(16, 7))
+
+    # 1. 3D Plot Colored by Predicted Label
+    ax1 = fig.add_subplot(1, 2, 1, projection="3d")
+    classes = ["buildings", "forest", "glacier", "mountain", "sea", "street"]
+    colors = ["#e41a1c", "#4daf4a", "#377eb8", "#984ea3", "#ff7f00", "#a65628"]
+
+    for i, cls_name in enumerate(classes):
+        mask = df["predicted"] == i
+        ax1.scatter(
+            coords[mask, 0], coords[mask, 1], coords[mask, 2],
+            c=colors[i], label=cls_name, s=8, alpha=0.6
+        )
+    ax1.set_title(f"3LC UMAP 3D Latent Embeddings (Predicted Class) {title_suffix}", fontsize=12, pad=10)
+    ax1.legend(loc="upper right", markerscale=3)
+    ax1.set_xlabel("UMAP 1")
+    ax1.set_ylabel("UMAP 2")
+    ax1.set_zlabel("UMAP 3")
+
+    # 2. 3D Plot Colored by Confidence
+    ax2 = fig.add_subplot(1, 2, 2, projection="3d")
+    sc = ax2.scatter(
+        coords[:, 0], coords[:, 1], coords[:, 2],
+        c=df["confidence"], cmap="viridis", s=8, alpha=0.6, vmin=0.2, vmax=1.0
+    )
+    cbar = fig.colorbar(sc, ax=ax2, shrink=0.6, aspect=15)
+    cbar.set_label("Prediction Confidence", fontsize=10)
+    ax2.set_title(f"3LC UMAP 3D Latent Embeddings (Confidence) {title_suffix}", fontsize=12, pad=10)
+    ax2.set_xlabel("UMAP 1")
+    ax2.set_ylabel("UMAP 2")
+    ax2.set_zlabel("UMAP 3")
+
+    plt.tight_layout()
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    plt.savefig(output_path, dpi=300)
+    plt.close(fig)
+    print(f"[REPORT] Saved embedding visualization to: {output_path}")
 
 
 def main():
@@ -138,7 +188,7 @@ def main():
     )
     val_loader = DataLoader(val_table, batch_size=batch_size, shuffle=False, num_workers=0)
 
-    # 4. Model, Criterion, Optimizer
+    # 4. Model, Criterion, Optimizer, Scheduler
     print("\n[3/6] Initializing Model from scratch...")
     model = ResNet18Classifier(
         num_classes=config["model"]["num_classes"],
@@ -146,9 +196,21 @@ def main():
     ).to(device)
     verify_from_scratch(model)
 
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=cfg_train.get("weight_decay", 1e-5))
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=cfg_train.get("step_size", 5), gamma=cfg_train.get("gamma", 0.1))
+    label_smoothing = cfg_train.get("label_smoothing", 0.1) if args.advanced else 0.0
+    criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+    optimizer = optim.Adam(model.parameters(), lr=lr, weight_decay=cfg_train.get("weight_decay", 1e-4))
+
+    if args.advanced and cfg_train.get("scheduler") == "cosine_warmup":
+        warmup_epochs = cfg_train.get("warmup_epochs", 3)
+        min_lr = cfg_train.get("min_lr", 1e-6)
+        def lr_lambda(epoch_idx):
+            if epoch_idx < warmup_epochs:
+                return float(epoch_idx + 1) / float(max(1, warmup_epochs))
+            progress = float(epoch_idx - warmup_epochs) / float(max(1, epochs - warmup_epochs))
+            return max(min_lr / lr, 0.5 * (1.0 + np.cos(np.pi * progress)))
+        scheduler = optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=lr_lambda)
+    else:
+        scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=cfg_train.get("step_size", 5), gamma=cfg_train.get("gamma", 0.1))
 
     # 5. Initialize 3LC Run
     class_names = list(train_table.get_simple_value_map("label").values())
@@ -176,7 +238,7 @@ def main():
     best_model_state = None
     best_epoch = 0
 
-    print(f"\n[4/6] Training for {epochs} epochs (lr={lr}, batch_size={batch_size})...")
+    print(f"\n[4/6] Training for {epochs} epochs (lr={lr}, batch_size={batch_size}, active_samples={n_weight1})...")
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
@@ -204,7 +266,8 @@ def main():
 
         val_accuracy = 100.0 * val_correct / val_total
         scheduler.step()
-        print(f"  Epoch {epoch+1}/{epochs} | Val Acc: {val_accuracy:.2f}% (Best: {best_val_accuracy:.2f}%)")
+        current_lr = optimizer.param_groups[0]["lr"]
+        print(f"  Epoch {epoch+1}/{epochs} (lr={current_lr:.6f}) | Val Acc: {val_accuracy:.2f}% (Best: {best_val_accuracy:.2f}%)")
 
         if val_accuracy > best_val_accuracy:
             best_val_accuracy = val_accuracy
@@ -231,7 +294,8 @@ def main():
     print(f"[OK] Checkpoints saved to {ckpt_path} and {loop_ckpt_path}")
 
     # Generate and save confusion matrix
-    report_dir = PROJECT_ROOT / config["data"]["paths"]["reports_dir"] / f"loop{args.loop}"
+    loop_folder = "loop0_baseline" if args.loop == 0 else f"loop{args.loop}"
+    report_dir = PROJECT_ROOT / config["data"]["paths"]["reports_dir"] / loop_folder
     cm_path = report_dir / "confusion_matrix.png"
     target_names = config["data"]["classes"]
     plot_and_save_confusion_matrix(
@@ -255,15 +319,22 @@ def main():
 
     print("\n[6/6] Reducing embeddings with UMAP (3D)...")
     try:
-        run.reduce_embeddings_by_foreign_table_url(
+        reduced_meta = run.reduce_embeddings_by_foreign_table_url(
             train_table.url,
             method="umap",
             n_neighbors=15,
             n_components=3,
         )
         print("  [OK] Embeddings successfully reduced to 3D UMAP space.")
+        
+        # Save side-by-side 3D embedding visualization
+        run_name = run.name
+        parquet_file = Path.home() / ".local/share/3LC/projects" / config["project"]["name"] / "runs" / run_name / "reduced_0000" / "reduced_0000.parquet"
+        if parquet_file.exists():
+            emb_plot_path = report_dir / "embedding_view.png"
+            save_embedding_plot(parquet_file, emb_plot_path, title_suffix=f"- Loop {args.loop}")
     except Exception as e:
-        print(f"  [WARN] UMAP reduction exception: {e}")
+        print(f"  [WARN] UMAP reduction / visualization exception: {e}")
 
     run.set_status_completed()
 
