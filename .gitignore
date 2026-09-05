@@ -25,3 +25,4 @@ submissions/submission_*.csv
 .vscode/
 .idea/
 data/
+pdf_text.txt

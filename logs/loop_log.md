@@ -5,7 +5,8 @@
 |---|---|---|---|---|---|---|---|---|
 | 0 | 2026-09-05 11:47 | Baseline Seed Only (100/class) | 0 | 600 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train` | 69.42% | Submitted | Severe confusion on glacier/mountain/sea and buildings/street. Forest is well-separated. |
 | 1 | 2026-09-05 12:07 | Uncertainty Sampling + UMAP Diversity | 800 | 1400 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0000` | 78.00% | Pending | +8.58% accuracy leap. Forest reached 94.4% precision. Glacier/mountain (43/17 confusions) remain core bottleneck. |
-| 2 | 2026-09-05 12:16 | Error-Focused Sampling (Glacier/Mountain/Urban) | 800 | 2200 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001` | 81.75% | Pending | +3.75% accuracy leap to 81.75%. Mountain recall jumped to 75.5%, glacier to 69.5%, street F1 to 86.7%. |
+| 2 | 2026-09-05 12:16 | Error-Focused Sampling (Glacier/Mountain/Urban) | 800 | 2200 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001` | 81.75% | Submitted | +3.75% accuracy leap to 81.75%. Mountain recall jumped to 75.5%, glacier to 69.5%, street F1 to 86.7%. |
+| 3 | 2026-09-05 12:38 | Hard-Negative Mining Pass (Boundary Pairs) | 600 | 2800 / 3000 | `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0002` | 82.00% | Ready | Highest validation accuracy (82.00%). Sea recall 87.5%, forest recall 96.0%, buildings recall 81.0%, glacier precision 85.1%. |
 
 ---
 
@@ -48,3 +49,25 @@
   - Activated 800 curated samples targeting decision boundary uncertainty.
   - Proof artifacts generated: `reports/loop2/confusion_matrix.png`, `confusion_matrix.csv`, `confusion_matrix_report.txt`, `embedding_view.png`.
   - Predictions generated and formatted to `submission.csv` and archived to `submissions/`.
+
+---
+
+### Loop 3: Dedicated Hard-Negative Mining Pass (2026-09-05 12:38:44)
+- **Strategy / Criterion**: Hard-Negative Mining pass focused specifically on resolving difficult boundary ambiguous pairs (`glacier` ↔ `mountain` ↔ `sea` and `buildings` ↔ `street`). Candidates identified using prediction margin thresholding and 3D UMAP manifold proximity.
+- **Samples Touched / Newly Curated**: 600 samples (bringing total active samples to 2,800, safely within the 3,000 ceiling).
+- **Total Active Training Samples (weight = 1.0)**: 2,800 / 3,000 (100% compliant with competition rules).
+- **Table Revision**: `/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0002` (lineage parent: `train_0001`).
+- **Validation Accuracy**: 81.75% → **82.00%** (best epoch 15/15, lr=1e-6 cosine warmup).
+- **Kaggle Submission**: `submission.csv` (1,800 rows; backup in `submissions/submission_20260905_123946.csv`).
+- **Confusion Shifts & Detailed Class Performance**:
+  - `forest`: **96.00% recall**, 88.48% precision, F1 **0.9209** (best separated class).
+  - `sea`: **87.50% recall**, 81.40% precision, F1 **0.8434** (major improvement in coastal water vs. glacier distinction).
+  - `street`: **88.00% recall**, 84.21% precision, F1 **0.8606** (urban textures well separated).
+  - `buildings`: **81.00% recall**, 77.51% precision, F1 **0.7922** (buildings recall surpassed 80% threshold).
+  - `glacier`: 65.50% recall, **85.06% precision**, F1 **0.7401** (false positives reduced dramatically).
+  - `mountain`: **74.00% recall**, 75.51% precision, F1 **0.7475**.
+- **Proof Artifacts**:
+  - Confusion Matrix: `reports/loop3/confusion_matrix.png`
+  - Confusion Matrix CSV: `reports/loop3/confusion_matrix.csv`
+  - Classification Metrics: `reports/loop3/confusion_matrix_report.txt`
+  - 3D UMAP Embedding Visualization: `reports/loop3/embedding_view.png`

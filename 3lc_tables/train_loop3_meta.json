@@ -1,0 +1,9 @@
+{
+  "loop": 3,
+  "table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0002",
+  "parent_table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0001",
+  "total_rows": 6600,
+  "active_weight1_rows": 2800,
+  "newly_annotated": 600,
+  "description": "Loop 3: Hard-Negative Mining Pass (Boundary Ambiguity Pairs)"
+}
