@@ -1,0 +1,21 @@
+{
+  "table_name": "train",
+  "table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0008",
+  "parent_table_url": "/home/h3r0-k1ll3r/.local/share/3LC/projects/Intel-Scene/datasets/intel-scene/tables/train_0005",
+  "total_rows": 6600,
+  "active_weight1_rows": 2971,
+  "class_distribution": {
+    "buildings": 368,
+    "forest": 639,
+    "glacier": 419,
+    "mountain": 567,
+    "sea": 426,
+    "street": 552
+  },
+  "compliance": {
+    "strictly_scratch": true,
+    "zero_clip": true,
+    "budget_limit_verified": true,
+    "visually_reviewed": true
+  }
+}

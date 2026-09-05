@@ -33,10 +33,17 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 def parse_args():
     parser = argparse.ArgumentParser(description="Multi-Seed Ensemble Inference")
     parser.add_argument(
+        "--mode",
+        type=str,
+        choices=["stacked", "seeds"],
+        default="stacked",
+        help="Ensemble mode: 'stacked' (3-seed + balanced + Loop 2 snapshot: 83.25% Val Acc) or 'seeds' (multi-seed only)",
+    )
+    parser.add_argument(
         "--checkpoints",
         nargs="+",
         default=["best_model_seed42.pth", "best_model_seed43.pth", "best_model_seed44.pth"],
-        help="List of checkpoint paths to ensemble",
+        help="List of checkpoint paths to ensemble (for seeds mode)",
     )
     parser.add_argument("--use-tta", action="store_true", help="Apply horizontal flip TTA averaging")
     parser.add_argument("--output", type=str, default="submission.csv", help="Output submission CSV path")
@@ -111,49 +118,108 @@ def main():
     print("  Multi-Seed Ensemble Inference (Rule-Compliant ResNet-18)")
     print("=" * 70)
 
-    # 1. Load all models
-    print(f"\n[1/4] Loading {len(args.checkpoints)} checkpoint(s)...")
-    models = load_ensemble_models(args.checkpoints, config)
-    if not models:
-        print("[FATAL] No valid models could be loaded.")
-        sys.exit(1)
-    print(f"  [OK] Successfully initialized {len(models)} model(s) for ensembling.")
+    if args.mode == "stacked":
+        print("\n[1/4] Loading Stacked Ensemble models (Seeds 42, 43, 44 + Balanced + Loop 2 Snapshot)...")
+        seeds_ckpts = ["best_model_seed42.pth", "best_model_seed43.pth", "best_model_seed44.pth"]
+        bal_ckpt = "best_model_balanced_seed42.pth"
+        l2_ckpt = "best_model_loop2.pth"
+        models_seeds = load_ensemble_models(seeds_ckpts, config)
+        models_bal = load_ensemble_models([bal_ckpt], config)
+        models_l2 = load_ensemble_models([l2_ckpt], config)
+        if not models_seeds or not models_bal or not models_l2:
+            print("[FATAL] Missing required models for stacked ensemble.")
+            sys.exit(1)
+        m_bal = models_bal[0]
+        m_l2 = models_l2[0]
+        
+        # 2. Evaluate
+        print("\n[2/4] Measuring stacked ensemble accuracy on validation set...")
+        val_dir = PROJECT_ROOT / config["data"]["paths"]["val_dir"]
+        norm = transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        t_orig = transforms.Compose([transforms.Resize((150, 150)), transforms.ToTensor(), norm])
+        classes = ["buildings", "forest", "glacier", "mountain", "sea", "street"]
+        correct, total = 0, 0
+        with torch.no_grad():
+            for label_idx, cls_name in enumerate(classes):
+                cls_dir = val_dir / cls_name
+                for img_file in cls_dir.glob("*.*"):
+                    img = Image.open(img_file).convert("RGB")
+                    x = t_orig(img).unsqueeze(0).to(device)
+                    p_seeds = sum([F.softmax(m(x), dim=1) for m in models_seeds]) / len(models_seeds)
+                    p_bal = F.softmax(m_bal(x), dim=1)
+                    p_l2 = F.softmax(m_l2(x), dim=1)
+                    p = 0.70 * p_seeds + 0.20 * p_bal + 0.10 * p_l2
+                    if p.argmax(1).item() == label_idx:
+                        correct += 1
+                    total += 1
+        acc = 100.0 * correct / total
+        print(f"[EVALUATION] Stacked Ensemble Validation Accuracy: {correct}/{total} ({acc:.2f}%)")
 
-    # 2. Evaluate on validation set
-    print("\n[2/4] Measuring ensemble accuracy on validation set...")
-    val_dir = PROJECT_ROOT / config["data"]["paths"]["val_dir"]
-    evaluate_val_ensemble(models, val_dir, use_tta=args.use_tta)
+        # 3. Predict
+        test_dir = PROJECT_ROOT / config["data"]["paths"]["test_dir"]
+        test_transform = get_test_transforms(config["data"]["image_size"])
+        test_dataset = TestDataset(test_dir, transform=test_transform, image_size=config["data"]["image_size"])
+        test_loader = DataLoader(test_dataset, batch_size=config["inference"]["batch_size"], shuffle=False, num_workers=0)
+        print(f"\n[3/4] Running stacked ensemble inference on {len(test_dataset)} test samples...")
+        predictions = {}
+        with torch.no_grad():
+            for images, image_ids in tqdm(test_loader, desc="Stacked Ensemble Inference"):
+                images = images.to(device)
+                p_seeds = sum([F.softmax(m(images), dim=1) for m in models_seeds]) / len(models_seeds)
+                p_bal = F.softmax(m_bal(images), dim=1)
+                p_l2 = F.softmax(m_l2(images), dim=1)
+                batch_probs = 0.70 * p_seeds + 0.20 * p_bal + 0.10 * p_l2
+                confidences, preds = batch_probs.max(1)
+                for img_id, pred, conf in zip(image_ids, preds.cpu().numpy(), confidences.cpu().numpy()):
+                    predictions[img_id] = {
+                        "image_id": img_id,
+                        "prediction": int(pred),
+                        "confidence": float(conf),
+                    }
+    else:
+        # 1. Load all models
+        print(f"\n[1/4] Loading {len(args.checkpoints)} checkpoint(s)...")
+        models = load_ensemble_models(args.checkpoints, config)
+        if not models:
+            print("[FATAL] No valid models could be loaded.")
+            sys.exit(1)
+        print(f"  [OK] Successfully initialized {len(models)} model(s) for ensembling.")
 
-    # 3. Predict on Test Set
-    test_dir = PROJECT_ROOT / config["data"]["paths"]["test_dir"]
-    test_transform = get_test_transforms(config["data"]["image_size"])
-    test_dataset = TestDataset(test_dir, transform=test_transform, image_size=config["data"]["image_size"])
-    test_loader = DataLoader(test_dataset, batch_size=config["inference"]["batch_size"], shuffle=False, num_workers=0)
+        # 2. Evaluate on validation set
+        print("\n[2/4] Measuring ensemble accuracy on validation set...")
+        val_dir = PROJECT_ROOT / config["data"]["paths"]["val_dir"]
+        evaluate_val_ensemble(models, val_dir, use_tta=args.use_tta)
 
-    print(f"\n[3/4] Running ensemble inference on {len(test_dataset)} test samples...")
-    predictions = {}
-    with torch.no_grad():
-        for images, image_ids in tqdm(test_loader, desc="Ensemble Inference"):
-            images = images.to(device)
-            batch_probs = torch.zeros((images.size(0), config["model"]["num_classes"]), device=device)
-            
-            for m in models:
-                p = F.softmax(m(images), dim=1)
-                if args.use_tta:
-                    images_flipped = torch.flip(images, dims=[3])
-                    p_flip = F.softmax(m(images_flipped), dim=1)
-                    p = (p + p_flip) / 2.0
-                batch_probs += p
-            
-            batch_probs /= len(models)
-            confidences, preds = batch_probs.max(1)
-            
-            for img_id, pred, conf in zip(image_ids, preds.cpu().numpy(), confidences.cpu().numpy()):
-                predictions[img_id] = {
-                    "image_id": img_id,
-                    "prediction": int(pred),
-                    "confidence": float(conf),
-                }
+        # 3. Predict on Test Set
+        test_dir = PROJECT_ROOT / config["data"]["paths"]["test_dir"]
+        test_transform = get_test_transforms(config["data"]["image_size"])
+        test_dataset = TestDataset(test_dir, transform=test_transform, image_size=config["data"]["image_size"])
+        test_loader = DataLoader(test_dataset, batch_size=config["inference"]["batch_size"], shuffle=False, num_workers=0)
+
+        print(f"\n[3/4] Running ensemble inference on {len(test_dataset)} test samples...")
+        predictions = {}
+        with torch.no_grad():
+            for images, image_ids in tqdm(test_loader, desc="Ensemble Inference"):
+                images = images.to(device)
+                batch_probs = torch.zeros((images.size(0), config["model"]["num_classes"]), device=device)
+                
+                for m in models:
+                    p = F.softmax(m(images), dim=1)
+                    if args.use_tta:
+                        images_flipped = torch.flip(images, dims=[3])
+                        p_flip = F.softmax(m(images_flipped), dim=1)
+                        p = (p + p_flip) / 2.0
+                    batch_probs += p
+                
+                batch_probs /= len(models)
+                confidences, preds = batch_probs.max(1)
+                
+                for img_id, pred, conf in zip(image_ids, preds.cpu().numpy(), confidences.cpu().numpy()):
+                    predictions[img_id] = {
+                        "image_id": img_id,
+                        "prediction": int(pred),
+                        "confidence": float(conf),
+                    }
 
     # 4. Align with sample_submission.csv
     print(f"\n[4/4] Aligning and validating against sample_submission.csv...")

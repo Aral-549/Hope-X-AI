@@ -29,7 +29,7 @@ import tlc
 
 from src.utils import set_seed, load_config, plot_and_save_confusion_matrix
 from src.model import ResNet18Classifier, verify_from_scratch
-from src.augment import get_baseline_transforms, get_advanced_transforms
+from src.augment import get_baseline_transforms, get_advanced_transforms, get_trivialaugment_transforms
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -44,6 +44,11 @@ def parse_args():
     parser.add_argument("--save-name", type=str, default=None, help="Custom checkpoint filename")
     parser.add_argument("--skip-metrics", action="store_true", help="Skip 3LC metric collection & UMAP reduction")
     parser.add_argument("--advanced", action="store_true", help="Use advanced augmentation & regularization recipe")
+    parser.add_argument("--balanced-sampler", action="store_true", help="Use class-balanced WeightedRandomSampler on inverse class frequency")
+    parser.add_argument("--glacier-boost", type=float, default=1.0, help="Multiplier for glacier class in balanced sampler")
+    parser.add_argument("--mixup", action="store_true", help="Use MixUp data augmentation")
+    parser.add_argument("--mixup-alpha", type=float, default=0.2, help="Beta distribution alpha for MixUp")
+    parser.add_argument("--trivial-augment", action="store_true", help="Use TrivialAugmentWide data augmentation policy")
     return parser.parse_args()
 
 
@@ -167,7 +172,9 @@ def main():
     lr = args.lr or cfg_train["learning_rate"]
     batch_size = cfg_train["batch_size"]
 
-    if args.advanced:
+    if args.trivial_augment:
+        train_tf, val_tf = get_trivialaugment_transforms(config["data"]["image_size"])
+    elif args.advanced:
         train_tf, val_tf = get_advanced_transforms(config["data"]["image_size"])
     else:
         train_tf, val_tf = get_baseline_transforms(config["data"]["image_size"])
@@ -183,7 +190,30 @@ def main():
     train_table.map(train_fn).map_collect_metrics(val_fn)
     val_table.map(val_fn)
 
-    train_sampler = train_table.create_sampler(exclude_zero_weights=True)
+    if args.balanced_sampler:
+        from collections import Counter
+        class_counts = Counter()
+        for row in train_table.table_rows:
+            if row["weight"] > 0:
+                class_counts[row["label"]] += 1
+        sample_weights = []
+        for row in train_table.table_rows:
+            if row["weight"] > 0:
+                w = 1.0 / max(1, class_counts[row["label"]])
+                if row["label"] == 2 and args.glacier_boost != 1.0:
+                    w *= args.glacier_boost
+                sample_weights.append(w)
+            else:
+                sample_weights.append(0.0)
+        sample_weights = torch.tensor(sample_weights, dtype=torch.double)
+        train_sampler = torch.utils.data.WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=n_weight1,
+            replacement=True,
+        )
+        print(f"  [SAMPLER] Using class-balanced WeightedRandomSampler (active class distribution: {dict(sorted(class_counts.items()))})")
+    else:
+        train_sampler = train_table.create_sampler(exclude_zero_weights=True)
     train_loader = DataLoader(
         train_table,
         batch_size=batch_size,
@@ -242,15 +272,31 @@ def main():
     best_model_state = None
     best_epoch = 0
 
-    print(f"\n[4/6] Training for {epochs} epochs (lr={lr}, batch_size={batch_size}, active_samples={n_weight1})...")
+    def mixup_data(x, y, alpha=0.2):
+        lam = np.random.beta(alpha, alpha) if alpha > 0 else 1.0
+        batch_size = x.size(0)
+        index = torch.randperm(batch_size, device=x.device)
+        mixed_x = lam * x + (1 - lam) * x[index]
+        y_a, y_b = y, y[index]
+        return mixed_x, y_a, y_b, lam
+
+    def mixup_criterion(crit, pred, y_a, y_b, lam):
+        return lam * crit(pred, y_a) + (1 - lam) * crit(pred, y_b)
+
+    print(f"\n[4/6] Training for {epochs} epochs (lr={lr}, batch_size={batch_size}, active_samples={n_weight1}, mixup={args.mixup})...")
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
         for images, labels in tqdm(train_loader, desc=f"Epoch {epoch+1}/{epochs}"):
             images, labels = images.to(device), labels.to(device)
             optimizer.zero_grad()
-            outputs = model(images)
-            loss = criterion(outputs, labels)
+            if args.mixup:
+                images_mixed, labels_a, labels_b, lam = mixup_data(images, labels, alpha=args.mixup_alpha)
+                outputs = model(images_mixed)
+                loss = mixup_criterion(criterion, outputs, labels_a, labels_b, lam)
+            else:
+                outputs = model(images)
+                loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
             train_loss += loss.item() * images.size(0)

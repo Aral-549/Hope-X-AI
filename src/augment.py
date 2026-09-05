@@ -50,6 +50,24 @@ def get_advanced_transforms(image_size: int = 150):
     return train_transform, val_transform
 
 
+def get_trivialaugment_transforms(image_size: int = 150):
+    """TrivialAugmentWide augmentation policy for diverse feature learning."""
+    train_transform = transforms.Compose([
+        transforms.Resize(int(image_size * 1.1)),
+        transforms.RandomCrop(image_size),
+        transforms.RandomHorizontalFlip(p=0.5),
+        transforms.TrivialAugmentWide(),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+    val_transform = transforms.Compose([
+        transforms.Resize((image_size, image_size)),
+        transforms.ToTensor(),
+        transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
+    ])
+    return train_transform, val_transform
+
+
 def get_test_transforms(image_size: int = 150):
     """Standard evaluation and test inference transform."""
     return transforms.Compose([
@@ -57,3 +75,4 @@ def get_test_transforms(image_size: int = 150):
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225]),
     ])
+

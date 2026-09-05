@@ -1,0 +1,13 @@
+=== 83.25% OPTIMAL STACKED ENSEMBLE ===
+              precision    recall  f1-score   support
+
+   buildings     0.7840    0.8200    0.8020       200
+      forest     0.9061    0.9650    0.9346       200
+     glacier     0.8667    0.7150    0.7836       200
+    mountain     0.7812    0.7500    0.7653       200
+         sea     0.8091    0.8900    0.8476       200
+      street     0.8571    0.8700    0.8635       200
+
+    accuracy                         0.8325      1200
+   macro avg     0.8340    0.8325    0.8328      1200
+weighted avg     0.8340    0.8325    0.8328      1200
