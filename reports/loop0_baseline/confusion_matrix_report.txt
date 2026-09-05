@@ -1,0 +1,14 @@
+=== Confusion Matrix - Loop 0 (Val Acc: 69.42%) ===
+
+              precision    recall  f1-score   support
+
+   buildings     0.7069    0.6150    0.6578       200
+      forest     0.8818    0.8950    0.8883       200
+     glacier     0.6739    0.6200    0.6458       200
+    mountain     0.6667    0.6100    0.6371       200
+         sea     0.5466    0.6450    0.5917       200
+      street     0.7091    0.7800    0.7429       200
+
+    accuracy                         0.6942      1200
+   macro avg     0.6975    0.6942    0.6939      1200
+weighted avg     0.6975    0.6942    0.6939      1200
