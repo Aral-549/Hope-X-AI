@@ -1,4 +1,4 @@
-# 3LC × HackBlox Scene Classification Challenge (Round 2)
+# Hope X AI · 3LC × HackBlox Scene Classification Challenge (Round 2)
 ### Data-Centric Active Learning, Regularization & Ensembling with ResNet-18 and 3LC
 
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
