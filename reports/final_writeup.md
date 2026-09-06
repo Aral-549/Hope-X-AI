@@ -2,11 +2,11 @@
 ## Final Technical Report: Data-Centric Active Learning, Regularization & Ensembling with 3LC
 
 **Team Name on Kaggle**: Hope  
-**Public Leaderboard Standing**: 0.82888 (Rank #7 on Public Leaderboard; 81.42% ± 1.55% Out-of-Fold Grand Stack with Meta-Learner)  
+**Public Leaderboard Standing**: 0.83111 (Rank #8 on Public Leaderboard; 82.50% – 82.67% Out-of-Fold Multi-Resolution Logit Meta-Learner)  
 **Date**: September 6, 2026  
 **Repository Deliverables**:
 - Final Submission 1 (Safe Fallback): `submission_train0005_safe.csv` (100% uncontested human lineage, 2,498 rows, 78.42% val acc)
-- Final Submission 2 (Top Generalization): `submission.csv` / `submission_meta_learner_8142.csv` (6-Way Stack with SWA, Balanced Sampler, 2-Scale Multi-Crop TTA, Meta-Learner C=1.0: 81.42% ± 1.55% OOF, **0.82888 Public LB**)
+- Final Submission 2 (Top Generalization): `submission.csv` / `submission_7way_logit_8250.csv` (Multi-Resolution Logit Meta-Learner with SWA, Balanced Sampler, 2-Scale Multi-Crop TTA: 82.50% ± 1.29% OOF, **0.83111 Public LB**)
 - 3LC Project Archive: `3lc_project_Intel-Scene.zip` (154 MB, contains all tables up to `train_0009` and metric runs)
 - Multi-Part GitHub Archive: `3lc_project_Intel-Scene.zip.part_aa`, `3lc_project_Intel-Scene.zip.part_ab` (reconstructed via `cat 3lc_project_Intel-Scene.zip.part_* > 3lc_project_Intel-Scene.zip`)
 - Lineage Table Metadata: `3lc_tables/`
@@ -171,8 +171,8 @@ For the team captain submitting the required Google Form:
 2. **Team members**: *(Enter team member names, one per line)*
 3. **All Team Member Emails**: *(Enter registered emails, one per line)*
 4. **All Team Member LinkedIn Ids**: *(Enter LinkedIn profile links)*
-5. **Rank on Private Leaderboard**: `7` *(Current Public Leaderboard Rank)*
-6. **Score on private leaderboard (Accuracy)**: `0.82888`
+5. **Rank on Private Leaderboard**: `8` *(Current Public Leaderboard Rank)*
+6. **Score on private leaderboard (Accuracy)**: `0.83111`
 7. **GitHub Repository Link**:
    - Link: `https://github.com/Aral-549/hackblox-3lc-scene-classification`
    - *Note*: Ensure the repo is accessible to the official evaluation handles once announced by event organizers.

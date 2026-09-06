@@ -4,8 +4,8 @@
 [![Python 3.11](https://img.shields.io/badge/python-3.11-blue.svg)](https://www.python.org/downloads/release/python-3110/)
 [![Framework 3LC](https://img.shields.io/badge/3LC-2.22.3-green.svg)](https://3lc.ai)
 [![Architecture](https://img.shields.io/badge/Model-ResNet18%20(From%20Scratch)-orange.svg)](https://pytorch.org)
-[![Leaderboard](https://img.shields.io/badge/Public%20LB-Rank%20%237%20(0.82888)-gold.svg)]()
-[![Validation OOF](https://img.shields.io/badge/CV%20OOF-81.42%25%20%C2%B1%201.55%25-brightgreen.svg)]()
+[![Leaderboard](https://img.shields.io/badge/Public%20LB-Rank%20%238%20(0.83111)-gold.svg)]()
+[![Validation OOF](https://img.shields.io/badge/CV%20OOF-82.67%25%20%C2%B1%201.22%25-brightgreen.svg)]()
 [![Reproducibility](https://img.shields.io/badge/Seed-Deterministic%20(42)-purple.svg)]()
 
 ---
@@ -45,7 +45,9 @@ To strictly respect the "ResNet-18 from scratch with zero external models or ext
 | **TrivialAugmentWide** | 3,000 / 3,000 | Dynamic augmentation policy | `intel-scene/tables/train_0009` | **79.42%** | Highest single-model score without ensembling. |
 | **SWA (6 epochs)** | 3,000 / 3,000 | Stochastic Weight Averaging (lr=3e-5) | `intel-scene/tables/train_0009` | **81.00% (TTA)** | Flatter minima: single model reached 80.17% standard / 81.00% with 2-scale TTA. |
 | **6-Way Grand Stack (Calibrated)** | 3,000 / 3,000 | Temperature scaling + OOF calibration | `intel-scene/tables/train_0009` | 81.25% ± 1.93% | Initial baseline ensemble (scored 0.81777 on Public LB). |
-| **6-Way Grand Stack (Meta-Learner)** | 3,000 / 3,000 | Multinomial Logistic Regression ($C=1.0$) | `intel-scene/tables/train_0009` | **81.42% ± 1.55%** | **0.82888 on Public LB (Rank #7)**. Tight fold variance (±1.55%), 96.1% agreement. |
+| **6-Way Grand Stack (Meta-Learner)** | 3,000 / 3,000 | Multinomial Logistic Regression ($C=1.0$) | `intel-scene/tables/train_0009` | **81.42% ± 1.55%** | Scored 0.82888 on Public LB. |
+| **7-Way Logit Meta-Learner** | 3,000 / 3,000 | Logit-Space $\text{logit}(p)$ Stacking ($C=0.05$) | `intel-scene/tables/train_0009` | **82.50% ± 1.29%** | **0.83111 on Public LB (Rank #8)**. Floor $\ge 81.25\%$ on every fold. |
+| **8-Way Multi-Res 200 Meta** | 3,000 / 3,000 | 3-Scale ResNet-18 Stack (150, 176, 200) ($C=0.08$) | `intel-scene/tables/train_0009` | **82.67% ± 1.22%** | Highest CV of the challenge; ultra-tight variance ($\pm 1.22\%$). |
 
 ```
 Validation Accuracy Trajectory Across Progression:
@@ -54,7 +56,8 @@ Validation Accuracy Trajectory Across Progression:
   Loop 2:             [=================================>           ] 81.75% (2,200 samples)
   Curated Safe Floor: [=============================>               ] 78.42% (2,498 samples)
   SWA + 2-Scale TTA:  [==================================>          ] 81.00% (3,000 samples)
-  6-Way Grand Stack:  [===================================>         ] 81.25% ± 1.93% OOF (3,000 samples)
+  Logit-Space 7-Way:  [====================================>        ] 82.50% ± 1.29% OOF  <-- 0.83111 on Kaggle LB
+  8-Way Multi-Res 200:[=====================================>       ] 82.67% ± 1.22% OOF (3,000 samples)
 ```
 
 ---
